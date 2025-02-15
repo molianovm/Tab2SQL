@@ -1,8 +1,8 @@
 # main.py
-from gui.main_window import App
+from gui.main_window import MainWindow
 
 def main():
-    app = App()
+    app = MainWindow()
     app.mainloop()
 
 if __name__ == "__main__":
