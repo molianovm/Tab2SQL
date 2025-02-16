@@ -1,8 +1,8 @@
 import re
 from datetime import datetime
 
+from utils import validate_keys
 from utils.errors import UnknownColumnTypeError, FailedValueFormattingError
-from utils.keys_validator import validate_keys
 
 
 class ValueFormatter:

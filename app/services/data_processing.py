@@ -2,8 +2,8 @@ import pandas as pd
 
 from models.column import Column
 from models.table import Table
+from utils import ValueFormatterFactory
 from utils.errors import TypeNotFoundError
-from utils.value_formatter import ValueFormatterFactory
 
 
 class DataProcessing:
@@ -49,7 +49,7 @@ class DataProcessing:
         :return: Строка вида "(val_1, val_2, ...)".
         """
         row_values = [
-            ValueFormatterFactory.get_value(
+            ValueFormatterFactory().get_value(
                 column_type=column.new_type,
                 input_value=row[column.column_name]
             )

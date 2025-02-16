@@ -1,5 +1,5 @@
+from utils import validate_keys
 from utils.errors import SQLFormatterNotFoundError
-from utils.keys_validator import validate_keys
 
 
 class SQLFormatter:
