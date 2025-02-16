@@ -40,3 +40,13 @@ class DataProcessingError(Exception):
 
 class TypeNotFoundError(DataProcessingError):
     """Тип столбца не найден."""
+
+# value_formatter.py
+class ValueFormatterError(Exception):
+    """Базовый класс для всех исключений в value_formatter."""
+
+class UnknownColumnTypeError(ValueFormatterError):
+    """Тип столбца не поддерживается."""
+
+class FailedValueFormattingError(ValueFormatterError):
+    """Ошибка форматирования значения."""
