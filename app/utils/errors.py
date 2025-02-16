@@ -34,19 +34,33 @@ class CSVIsEmptyError(LoadDataError):
 class ExcelSheetNotFoundError(LoadDataError):
     """Лист Excel не найден."""
 
+
 # data_processing.py
 class DataProcessingError(Exception):
     """Базовый класс для всех исключений в data_processing."""
 
+
 class TypeNotFoundError(DataProcessingError):
     """Тип столбца не найден."""
+
 
 # value_formatter.py
 class ValueFormatterError(Exception):
     """Базовый класс для всех исключений в value_formatter."""
 
+
 class UnknownColumnTypeError(ValueFormatterError):
     """Тип столбца не поддерживается."""
 
+
 class FailedValueFormattingError(ValueFormatterError):
     """Ошибка форматирования значения."""
+
+
+# sql_formatter.py
+class SQLFormatterError(Exception):
+    """Базовый класс для всех исключений в sql_formatter."""
+
+
+class SQLFormatterNotFoundError(SQLFormatterError):
+    """Тип форматирования для SQL не найден."""

@@ -3,16 +3,15 @@ class KeyMismatchError(Exception):
 
 
 def validate_keys(
-    expected: set[str],
+    expected: set[any],
     expected_name: str,
-    actual: set[str],
+    actual: set[any],
     actual_name: str,
     error_cls: type[Exception] = KeyMismatchError
 ) -> None:
     """
     Универсальная функция для проверки, что множество `actual` полностью
     соответствует множеству `expected`. Если есть расхождения, бросается ошибка.
-
     :param expected: Множество ожидаемых ключей
     :param expected_name: Название множества ожидаемых ключей
     :param actual: Множество фактических ключей
@@ -32,5 +31,4 @@ def validate_keys(
     if extra:
         messages.append(f"Лишние ключи в {actual_name}: {', '.join(extra)}")
 
-    # Бросаем выбранный класс ошибки с детальным сообщением
     raise error_cls(" | ".join(messages))

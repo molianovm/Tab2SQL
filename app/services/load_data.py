@@ -70,7 +70,7 @@ class LoadCSV(LoadData):
             return df
         except pd.errors.ParserError as e:
             raise CSVParseError(f"Ошибка при попытке парсинга CSV: {e}")
-        except pd.errors.EmptyDataError as e:
+        except pd.errors.EmptyDataError:
             raise CSVIsEmptyError(f"Отсутствуют данные в CSV")
 
 
@@ -81,7 +81,7 @@ class LoadExcel(LoadData):
 
     def __init__(self, file_path: str):
         super().__init__(file_path)
-        self.sheet_name: str | int | None = None
+        self._sheet_name: str | int | None = None
 
     @property
     def filename(self) -> str:
@@ -89,7 +89,7 @@ class LoadExcel(LoadData):
         Возвращает имя Excel-файла на основе выбранного листа.
         :return: Строка с именем для таблицы.
         """
-        return self.sheet_name
+        return self._sheet_name
 
     def get_data(self, sheet_name: str | int = 0) -> pd.DataFrame:
         """
@@ -98,8 +98,8 @@ class LoadExcel(LoadData):
                            По умолчанию 0 (первый лист).
         :return: Загруженные данные в формате DataFrame.
         """
-        self.sheet_name = self._get_sheet_name(sheet_name)
-        return pd.read_excel(self.file_path, sheet_name=self.sheet_name)
+        self._sheet_name = self._get_sheet_name(sheet_name)
+        return pd.read_excel(self.file_path, sheet_name=self._sheet_name)
 
     def _get_sheet_name(self, sheet_name: str | int) -> str:
         """
@@ -133,64 +133,70 @@ class DataLoaderFactory:
     """
     Фабрика загрузчиков данных.
     """
-    supported_types: dict[str, type] = {
+    SUPPORTED_TYPES: dict[str, type] = {
         '.csv': LoadCSV,
         '.xlsx': LoadExcel,
         '.xls': LoadExcel
     }
-    file_path: str | None = None
 
-    @classmethod
-    def load_data(cls, file_path: str, **kwargs) -> tuple[pd.DataFrame, str]:
+    def __init__(self):
+        self._file_path = None
+
+    @property
+    def types(self) -> list[str]:
+        """
+        Возвращает список поддерживаемых расширений для загрузки данных.
+        :return: Список поддерживаемых расширений для загрузки данных.
+        """
+        return list(self.SUPPORTED_TYPES.keys())
+
+    def load_data(self, file_path: str, **kwargs) -> tuple[pd.DataFrame, str]:
         """
         Функция загрузки данных из файла.
         :param file_path: Путь к файлу для чтения.
         :param kwargs: Дополнительные параметры для настройки процесса загрузки.
         :return: DataFrame с загруженными данными (с заполнением пропусков "NULL") и имя таблицы.
         """
-        cls.file_path = file_path
-        loader = cls._create_loader()
+        self._file_path = file_path
+        loader = self._create_loader()
         df = loader.get_data(**kwargs)
         if df is None:
             raise DataFrameLoadError("Не удалось загрузить данные")
         return df.fillna("NULL"), loader.filename
 
-    @classmethod
-    def _create_loader(cls) -> LoadData:
+    def _create_loader(self) -> LoadData:
         """
         Создает экземпляр загрузчика данных в зависимости от расширения файла.
         :return: Экземпляр загрузчика данных.
         """
-        cls._validate_file_path()
-        extension = cls._get_extension()
-        loader_class = cls.supported_types[extension]
-        return loader_class(cls.file_path)
+        self._validate_file_path()
+        extension = self._get_extension()
+        loader_class = self.SUPPORTED_TYPES[extension]
+        return loader_class(self._file_path)
 
-    @classmethod
-    def _validate_file_path(cls) -> None:
+    def _validate_file_path(self) -> None:
         """
         Проверка существования файла по указанному пути.
         """
-        if not cls.file_path:
+        if not self._file_path:
             raise PathNotProvidedError("Путь к файлу не указан")
-        if not os.path.exists(cls.file_path):
-            raise FileDoesNotExistError(f"Файл не найден по пути: {cls.file_path}")
+        if not os.path.exists(self._file_path):
+            raise FileDoesNotExistError(f"Файл не найден по пути: {self._file_path}")
 
-    @classmethod
-    def _get_extension(cls) -> str:
+    def _get_extension(self) -> str:
         """
         Определяет расширение файла по его пути.
+        :return: Расширение файла
         """
-        extension = os.path.splitext(cls.file_path)[1].lower()
-        cls._validate_extension(extension)
+        extension = os.path.splitext(self._file_path)[1].lower()
+        self._validate_extension(extension)
         return extension
 
-    @classmethod
-    def _validate_extension(cls, extension) -> None:
+    def _validate_extension(self, extension) -> None:
         """
         Проверка поддерживаемого расширения файла.
         :param extension: Проверяемое расширение файла
         :raises UnknownFileExtensionError: Если расширение файла не поддерживается
         """
-        if extension not in cls.supported_types:
+        if extension not in self.SUPPORTED_TYPES:
             raise UnknownFileExtensionError(f"Неподдерживаемое расширение файла: {extension}")
