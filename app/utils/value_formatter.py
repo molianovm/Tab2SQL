@@ -172,14 +172,7 @@ class ValueFormatterFactory:
         type_ = column_type.lower()
         if type_ not in formatters:
             raise UnknownColumnTypeError(f"Неизвестный тип колонки: {column_type}")
-        try:
-            returned_value = formatters[type_]()
-            if returned_value is None:
-                raise FailedValueFormattingError(
-                    f"Не удалось преобразовать значение {input_value} в тип {self.types[type_]}"
-                )
-            return formatters[type_]()
-        except ValueError:
-            return "NULL"
-        except FailedValueFormattingError:
-            return "NULL"
+        returned_value = formatters[type_]()
+        if returned_value is None:
+            raise FailedValueFormattingError()
+        return formatters[type_]()
