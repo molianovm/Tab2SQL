@@ -23,6 +23,15 @@ class LoadData(ABC):
 
     def __init__(self, file_path: str) -> None:
         self.file_path = file_path
+        self._filename = None
+
+    @property
+    def filename(self) -> str:
+        """
+        Возвращает имя для таблицы загруженных данных на основе его пути (без расширения).
+        :return: Имя файла без расширения.
+        """
+        return os.path.basename(self.file_path).split('.')[0]
 
     @abstractmethod
     def get_data(self, **kwargs) -> pd.DataFrame:
@@ -70,20 +79,17 @@ class LoadExcel(LoadData):
     Класс для загрузки данных из Excel-файла.
     """
 
-    def _validate_sheet(self, sheet_name: str | int) -> None:
+    def __init__(self, file_path: str):
+        super().__init__(file_path)
+        self.sheet_name: str | int | None = None
+
+    @property
+    def filename(self) -> str:
         """
-        Проверка существования листа в Excel-файле.
-        :param sheet_name: Имя листа (str) или индекс листа (int)
-        :raises ExcelSheetNotFoundError: Если лист с указанным именем или индексом не найден.
+        Возвращает имя Excel-файла на основе выбранного листа.
+        :return: Строка с именем для таблицы.
         """
-        xlsx = pd.ExcelFile(self.file_path)
-        valid_sheets = xlsx.sheet_names
-        if sheet_name is None:
-            raise ExcelSheetNotFoundError("Имя листа не указано")
-        if isinstance(sheet_name, int) and not (0 <= sheet_name < len(valid_sheets)):
-            raise ExcelSheetNotFoundError(f"Лист с индексом {sheet_name} не найден в Excel-файле")
-        if isinstance(sheet_name, str) and sheet_name not in valid_sheets:
-            raise ExcelSheetNotFoundError(f"Лист с именем {sheet_name} не найден в Excel-файле")
+        return self.sheet_name
 
     def get_data(self, sheet_name: str | int = 0) -> pd.DataFrame:
         """
@@ -92,56 +98,99 @@ class LoadExcel(LoadData):
                            По умолчанию 0 (первый лист).
         :return: Загруженные данные в формате DataFrame.
         """
-        self._validate_sheet(sheet_name)
-        df = pd.read_excel(self.file_path, sheet_name=sheet_name)
-        return df
+        self.sheet_name = self._get_sheet_name(sheet_name)
+        return pd.read_excel(self.file_path, sheet_name=self.sheet_name)
+
+    def _get_sheet_name(self, sheet_name: str | int) -> str:
+        """
+        Возвращает имя Excel-файла на основе выбранного листа (по индексу или имени).
+        :param sheet_name: Имя листа (str) или индекс листа (int).
+        :return: Имя листа (str).
+        """
+        xlsx = pd.ExcelFile(self.file_path)
+        valid_sheets = xlsx.sheet_names
+        self._validate_sheet(sheet_name, valid_sheets)
+        if isinstance(sheet_name, int):
+            return valid_sheets[sheet_name]
+        return sheet_name
+
+    @staticmethod
+    def _validate_sheet(sheet_name: str | int, valid_sheets: list[str]) -> None:
+        """
+        Проверка существования листа в Excel-файле.
+        :param sheet_name: Имя листа (str) или индекс листа (int)
+        :raises ExcelSheetNotFoundError: Если лист с указанным именем или индексом не найден.
+        """
+        if sheet_name is None:
+            raise ExcelSheetNotFoundError("Имя листа не указано")
+        if isinstance(sheet_name, int) and not (0 <= sheet_name < len(valid_sheets)):
+            raise ExcelSheetNotFoundError(f"Лист с индексом {sheet_name} не найден в Excel-файле")
+        if isinstance(sheet_name, str) and sheet_name not in valid_sheets:
+            raise ExcelSheetNotFoundError(f"Лист с именем {sheet_name} не найден в Excel-файле")
 
 
-def _validate_file_path(file_path: str) -> None:
+class DataLoaderFactory:
     """
-    Проверка существования файла по указанному пути.
-    :param file_path: Путь к файлу для загрузки.
+    Фабрика загрузчиков данных.
     """
-    if not file_path:
-        raise PathNotProvidedError("Путь к файлу не указан")
-    if not os.path.exists(file_path):
-        raise FileDoesNotExistError(f"Файл не найден по пути: {file_path}")
-
-
-def _get_extension(file_path: str, supported_extensions: dict[str, type]) -> str:
-    """
-    Определяет расширение файла по его пути.
-    :param file_path: Путь к файлу для загрузки.
-    :param supported_extensions: Поддерживаемые расширения файлов.
-    :return: Расширение файла на основе его пути.
-    """
-    _validate_file_path(file_path)
-    extension = os.path.splitext(file_path)[1].lower()
-    if extension not in supported_extensions:
-        raise UnknownFileExtensionError(f"Неподдерживаемое расширение файла: {extension}")
-    return extension
-
-
-def load_data(file_path, **kwargs):
-    """
-    Загружает данные из файла в формате DataFrame.
-    :param file_path: Путь к файлу для загрузки.
-    :param kwargs: Дополнительные параметры, передаваемые в метод `get_data()`
-                   (например, `delimiter` для CSV или `sheet_name` для Excel).
-    :return: Загруженные данные в формате DataFrame, с заполнением NaN значением "NULL".
-    :raises DataFrameLoadError: Если не удалось загрузить данные (loader вернул None).
-    """
-    supported_types = {
+    supported_types: dict[str, type] = {
         '.csv': LoadCSV,
         '.xlsx': LoadExcel,
         '.xls': LoadExcel
     }
-    extension = _get_extension(file_path, supported_types)
+    file_path: str | None = None
 
-    loader_class = supported_types[extension]
-    loader = loader_class(file_path)
+    @classmethod
+    def load_data(cls, file_path: str, **kwargs) -> tuple[pd.DataFrame, str]:
+        """
+        Функция загрузки данных из файла.
+        :param file_path: Путь к файлу для чтения.
+        :param kwargs: Дополнительные параметры для настройки процесса загрузки.
+        :return: DataFrame с загруженными данными (с заполнением пропусков "NULL") и имя таблицы.
+        """
+        cls.file_path = file_path
+        loader = cls._create_loader()
+        df = loader.get_data(**kwargs)
+        if df is None:
+            raise DataFrameLoadError("Не удалось загрузить данные")
+        return df.fillna("NULL"), loader.filename
 
-    df = loader.get_data(**kwargs)
-    if df is None:
-        raise DataFrameLoadError("Не удалось загрузить данные")
-    return df.fillna("NULL")
+    @classmethod
+    def _create_loader(cls) -> LoadData:
+        """
+        Создает экземпляр загрузчика данных в зависимости от расширения файла.
+        :return: Экземпляр загрузчика данных.
+        """
+        cls._validate_file_path()
+        extension = cls._get_extension()
+        loader_class = cls.supported_types[extension]
+        return loader_class(cls.file_path)
+
+    @classmethod
+    def _validate_file_path(cls) -> None:
+        """
+        Проверка существования файла по указанному пути.
+        """
+        if not cls.file_path:
+            raise PathNotProvidedError("Путь к файлу не указан")
+        if not os.path.exists(cls.file_path):
+            raise FileDoesNotExistError(f"Файл не найден по пути: {cls.file_path}")
+
+    @classmethod
+    def _get_extension(cls) -> str:
+        """
+        Определяет расширение файла по его пути.
+        """
+        extension = os.path.splitext(cls.file_path)[1].lower()
+        cls._validate_extension(extension)
+        return extension
+
+    @classmethod
+    def _validate_extension(cls, extension) -> None:
+        """
+        Проверка поддерживаемого расширения файла.
+        :param extension: Проверяемое расширение файла
+        :raises UnknownFileExtensionError: Если расширение файла не поддерживается
+        """
+        if extension not in cls.supported_types:
+            raise UnknownFileExtensionError(f"Неподдерживаемое расширение файла: {extension}")
