@@ -1,6 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, Canvas
+from tkinter import ttk
 from tkinter.ttk import Frame
+
+from gui import WidgetBuilder
 
 
 class MainWindow(tk.Tk):
@@ -9,140 +11,155 @@ class MainWindow(tk.Tk):
         self.title("Tab2SQL")
         self.geometry("1200x600")
         self.minsize(1200, 600)
+        self.builder = WidgetBuilder()
         self.create_widgets()
 
     def create_widgets(self):
+        # Основной контейнер
         main_frame = ttk.Frame(self)
         main_frame.pack(fill='both', expand=True)
-        self._config_frame(main_frame)
-        self._code_frame(main_frame)
+        # Слева – панель настроек
+        self.build_config_frame(main_frame)
+        # Справа – панель с SQL-кодом
+        self.build_code_frame(main_frame)
 
-    def _config_frame(self, frame: Frame) -> None:
-        config_frame = ttk.Frame(frame, width=500)
-        config_frame.pack(side='left', fill='y', expand=False)
-        config_frame.pack_propagate(False)
-        self._file_settings_frame(config_frame)
-        self._options_frame(config_frame)
-        self._table_frame(config_frame)
-        self._headers_frame(config_frame)
-        self._columns_canvas(config_frame)
+    def build_config_frame(self, parent: Frame) -> None:
+        # Создаем панель настроек (слева)
+        config_frame = self.builder.frame(
+            parent, width=500, pack_options={'side': 'left', 'fill': 'y', 'expand': False}
+        )
+        # Файловые настройки
+        self.build_file_settings(config_frame)
+        # Опции для Excel/CSV
+        self.build_options_frame(config_frame)
+        # Настройки таблицы
+        self.build_table_frame(config_frame)
+        # Заголовки для колонок
+        self.build_headers_frame(config_frame)
+        # Область для столбцов с прокруткой
+        self.build_columns_canvas(config_frame)
 
-    def _columns_canvas(self, frame: Frame) -> None:
-        columns_canvas = tk.Canvas(frame)
-        columns_canvas.pack(side="left", fill="both", expand=True)
-        self._columns_canvas_scrollbar(frame, columns_canvas)
+    def build_file_settings(self, parent: Frame) -> None:
+        file_frame = self.builder.frame(
+            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.builder.button(
+            file_frame,
+            text="Выбрать файл",
+            command=self.on_select_file,
+            pack_options={'side': 'left'}
+        )
+        self.builder.label(
+            file_frame, text="Файл не выбран", pack_options={'side': 'left', 'padx': 10}
+        )
+        self.builder.button(
+            file_frame, text="Типы", command=self.on_show_types, pack_options={'side': 'right', 'padx': 5}
+        )
 
-    @staticmethod
-    def _columns_canvas_scrollbar(frame: Frame, canvas: Canvas) -> None:
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
-        scrollbar.pack(side="right", fill="y")
+    def build_options_frame(self, parent: Frame) -> None:
+        options_frame = self.builder.frame(
+            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.build_excel_frame(options_frame)
+        self.build_csv_frame(options_frame)
 
-    def _file_settings_frame(self, frame: Frame) -> None:
-        file_settings_frm = ttk.Frame(frame)
-        file_settings_frm.pack(padx=10, pady=5, fill='x')
-        self._select_file_button(file_settings_frm)
-        self._file_label(file_settings_frm)
-        self._help_button(file_settings_frm)
+    def build_excel_frame(self, parent: Frame) -> None:
+        excel_frame = self.builder.frame(
+            parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
+        )
+        self.builder.label(
+            excel_frame, text="Выберите лист:", pack_options={'side': 'left'}
+        )
+        self.builder.combobox(
+            excel_frame, pack_options={'side': 'left', 'padx': 5}, state="readonly"
+        )
 
-    @staticmethod
-    def _select_file_button(frame: Frame) -> None:
-        select_file_btn = ttk.Button(frame, text="Выбрать файл")
-        select_file_btn.pack(side='left')
+    def build_csv_frame(self, parent: Frame) -> None:
+        csv_frame = self.builder.frame(
+            parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
+        )
+        self.builder.label(
+            csv_frame,
+            text="Разделитель:", pack_options={'side': 'left'}
+        )
+        self.builder.entry(
+            csv_frame, width=5, pack_options={'side': 'left', 'padx': 5}
+        )
+        self.builder.checkbutton(
+            csv_frame, text="Заголовок", pack_options={'side': 'left', 'padx': 5}
+        )
 
-    @staticmethod
-    def _file_label(frame: Frame) -> None:
-        file_lbl = ttk.Label(frame, text="Файл не выбран")
-        file_lbl.pack(side='left', padx=10)
+    def build_table_frame(self, parent: Frame) -> None:
+        table_frame = self.builder.frame(
+            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.builder.label(
+            table_frame, text="Имя таблицы:", pack_options={'side': 'left'}
+        )
+        self.builder.entry(
+            table_frame, width=30, pack_options={'side': 'left', 'padx': 5}
+        )
+        self.builder.button(
+            table_frame, text="Генерация кода", command=self.on_generate_sql, pack_options={'side': 'right', 'padx': 5}
+        )
 
-    @staticmethod
-    def _help_button(frame: Frame) -> None:
-        help_btn = ttk.Button(frame, text="Типы")
-        help_btn.pack(side='right', padx=5)
+    def build_headers_frame(self, parent: Frame) -> None:
+        headers_frame = self.builder.frame(
+            parent, pack_options={'padx': 10, 'pady': (5, 0), 'fill': 'x'}
+        )
+        # Используем grid для размещения заголовков столбцов
+        headers = [
+            ("Имя столбца", 20),
+            ("Тип (наш)", 15),
+            ("Новый тип", 15),
+            ("Включить", 10)
+        ]
+        for i, (text, width) in enumerate(headers):
+            lbl = ttk.Label(headers_frame, text=text, width=width, anchor="center")
+            lbl.grid(row=0, column=i, padx=5)
 
-    def _options_frame(self, frame: Frame) -> None:
-        options_frm = ttk.Frame(frame)
-        options_frm.pack(padx=10, pady=5, fill='x')
-        self._excel_frame(options_frm)
-        self._csv_frame(options_frm)
+    def build_columns_canvas(self, parent: Frame) -> None:
+        # Область для столбцов с прокруткой
+        canvas = self.builder.canvas(
+            parent, pack_options={'side': 'left', 'fill': 'both', 'expand': True}
+        )
+        scrollbar = self.builder.scrollbar(
+            parent, command=canvas.yview, pack_options={'side': 'right', 'fill': 'y'}
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-    def _excel_frame(self, frame: Frame) -> None:
-        excel_frm = ttk.Frame(frame)
-        excel_frm.pack(padx=5, pady=5, fill='x')
-        ttk.Label(excel_frm, text="Выберите лист:").pack(side='left')
-        self._sheet_combobox(excel_frm)
+    def build_code_frame(self, parent: Frame) -> None:
+        code_frame = self.builder.frame(
+            parent, pack_options={'side': 'right', 'fill': 'both', 'expand': True}
+        )
+        self.builder.text(
+            code_frame, pack_options={'padx': 10, 'pady': 5, 'fill': 'both', 'expand': True}
+        )
+        self.build_code_buttons_frame(code_frame)
 
-    @staticmethod
-    def _sheet_combobox(frame: Frame) -> None:
-        sheet_cb = ttk.Combobox(frame, state="readonly")
-        sheet_cb.pack(side='left', padx=5)
+    def build_code_buttons_frame(self, parent: Frame) -> None:
+        btn_frame = self.builder.frame(
+            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.builder.button(
+            btn_frame, text="Копировать все", command=self.on_copy_all, pack_options={'side': 'left', 'padx': 5}
+        )
+        self.builder.button(
+            btn_frame, text="Ошибки", command=self.on_show_errors, pack_options={'side': 'right', 'padx': 5}
+        )
 
-    def _csv_frame(self, frame: Frame) -> None:
-        csv_frm = ttk.Frame(frame)
-        csv_frm.pack(padx=5, pady=5, fill='x')
-        ttk.Label(csv_frm, text="Разделитель:").pack(side='left')
-        self._delimiter_entry(csv_frm)
-        self._header_checkbox(csv_frm)
+    # Обработчики событий (пример)
+    def on_select_file(self):
+        print("Выбран файл")
 
-    @staticmethod
-    def _delimiter_entry(frame: Frame) -> None:
-        delimiter_entry = ttk.Entry(frame, width=5)
-        delimiter_entry.pack(side='left', padx=5)
+    def on_show_types(self):
+        print("Показаны типы файлов")
 
-    @staticmethod
-    def _header_checkbox(frame: Frame) -> None:
-        header_cb = ttk.Checkbutton(frame, text="Заголовок")
-        header_cb.pack(side='left', padx=5)
+    def on_generate_sql(self):
+        print("Генерация SQL")
 
-    def _table_frame(self, frame: Frame) -> None:
-        table_frm = ttk.Frame(frame)
-        table_frm.pack(padx=10, pady=5, fill='x')
-        ttk.Label(table_frm, text="Имя таблицы:").pack(side='left')
-        self._table_entry(table_frm)
-        self._generate_sql_button(table_frm)
+    def on_copy_all(self):
+        print("Копировать весь код")
 
-    @staticmethod
-    def _table_entry(frame: Frame) -> None:
-        table_name = tk.StringVar()
-        table_ent = ttk.Entry(frame, textvariable=table_name, width=30)
-        table_ent.pack(side='left', padx=5)
-
-    @staticmethod
-    def _generate_sql_button(frame: Frame) -> None:
-        generate_sql_btn = ttk.Button(frame, text="Сгенерировать код")
-        generate_sql_btn.pack(side='right', padx=5)
-
-    @staticmethod
-    def _headers_frame(frame: Frame) -> None:
-        headers_frm = ttk.Frame(frame)
-        headers_frm.pack(padx=10, pady=(5, 0), fill='x')
-        ttk.Label(headers_frm, text="Имя столбца", width=20, anchor="center").grid(row=0, column=0, padx=5)
-        ttk.Label(headers_frm, text="Тип (наш)", width=15, anchor="center").grid(row=0, column=1, padx=5)
-        ttk.Label(headers_frm, text="Новый тип", width=15, anchor="center").grid(row=0, column=2, padx=5)
-        ttk.Label(headers_frm, text="Включить", width=10, anchor="center").grid(row=0, column=3, padx=5)
-
-    def _code_frame(self, frame: Frame) -> None:
-        code_frame = ttk.Frame(frame)
-        code_frame.pack(side='right', fill='both', expand=True)
-        self._sql_text(code_frame)
-        self._code_buttons_frame(code_frame)
-
-    @staticmethod
-    def _sql_text(frame: Frame) -> None:
-        sql_txt = tk.Text(frame)
-        sql_txt.pack(padx=10, pady=5, fill='both', expand=True)
-
-    def _code_buttons_frame(self, frame: Frame) -> None:
-        buttons_frame = ttk.Frame(frame)
-        buttons_frame.pack(padx=10, pady=5, fill='x')
-        self._copy_all_button(buttons_frame)
-        self._errors_button(buttons_frame)
-
-    @staticmethod
-    def _copy_all_button(frame: Frame) -> None:
-        copy_all_btn = ttk.Button(frame, text="Копировать все")
-        copy_all_btn.pack(side='left', padx=5)
-
-    @staticmethod
-    def _errors_button(frame: Frame) -> None:
-        errors_btn = ttk.Button(frame, text="Ошибки")
-        errors_btn.pack(side='right', padx=5)
+    def on_show_errors(self):
+        print("Показ ошибок")
