@@ -1,9 +1,9 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from tkinter.ttk import Frame
 
 from gui import WidgetBuilder
-
+from models.app import AppModel
 
 class MainWindow(tk.Tk):
     def __init__(self):
@@ -12,102 +12,240 @@ class MainWindow(tk.Tk):
         self.geometry("1200x600")
         self.minsize(1200, 600)
         self.builder = WidgetBuilder()
+        self.model = AppModel()
+
+        self.main_frame = None
+        self.settings_frame = None
+        self.code_frame = None
         self.create_widgets()
 
     def create_widgets(self):
         # Основной контейнер
-        main_frame = ttk.Frame(self)
-        main_frame.pack(fill='both', expand=True)
-        # Слева – панель настроек
-        self.build_config_frame(main_frame)
-        # Справа – панель с SQL-кодом
-        self.build_code_frame(main_frame)
+        self.main_frame = ttk.Frame(self)
+        self.main_frame.pack(fill='both', expand=True)
+        # Левая сторона – панель настроек
+        self.settings_frame = SettingsFrame(self.main_frame, self.builder, self.model)
+        # Правая сторона – панель с SQL-кодом
+        self.code_frame = CodeFrame(self.main_frame, self.builder, self.model)
 
-    def build_config_frame(self, parent: Frame) -> None:
-        # Создаем панель настроек (слева)
-        config_frame = self.builder.frame(
-            parent, width=500, pack_options={'side': 'left', 'fill': 'y', 'expand': False}
+
+class SettingsFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        # Создаем основной контейнер для настроек
+        self.settings_frame = None
+        self.file_settings_and_types_frame = None
+        self.file_parse_options_frame = None
+        self.table_name_and_code_generate_frame = None
+        self.headers_frame = None
+        self.columns_config_frame = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.settings_frame = self.builder.frame(
+            self.parent, pack_options={'side': 'left', 'fill': 'y', 'expand': False}, width=500
         )
         # Файловые настройки
-        self.build_file_settings(config_frame)
+        self.file_settings_and_types_frame = FileSettingsAndTypesFrame(self.settings_frame, self.builder, self.model)
         # Опции для Excel/CSV
-        self.build_options_frame(config_frame)
+        self.file_parse_options_frame = FileParseOptionsFrame(self.settings_frame, self.builder, self.model)
         # Настройки таблицы
-        self.build_table_frame(config_frame)
-        # Заголовки для колонок
-        self.build_headers_frame(config_frame)
-        # Область для столбцов с прокруткой
-        self.build_columns_canvas(config_frame)
-
-    def build_file_settings(self, parent: Frame) -> None:
-        file_frame = self.builder.frame(
-            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        self.table_name_and_code_generate_frame = TableNameAndCodeGenerateFrame(
+            self.settings_frame,
+            self.builder,
+            self.model
         )
-        self.builder.button(
-            file_frame,
+        # Заголовки для колонок
+        self.headers_frame = HeadersFrame(self.settings_frame, self.builder, self.model)
+        # Область для колонок с прокруткой
+        self.columns_config_frame = ColumnsConfigFrame(self.settings_frame, self.builder, self.model)
+
+
+class FileSettingsAndTypesFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.file_settings_and_types_frame = None
+        self.select_file_button = None
+        self.file_name_label = None
+        self.columns_types_button = None
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.file_settings_and_types_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.select_file_button = self.builder.button(
+            self.file_settings_and_types_frame,
             text="Выбрать файл",
-            command=self.on_select_file,
+            command=self.get_file,
             pack_options={'side': 'left'}
         )
-        self.builder.label(
-            file_frame, text="Файл не выбран", pack_options={'side': 'left', 'padx': 10}
+        self.file_name_label = self.builder.label(
+            self.file_settings_and_types_frame,
+            text="Файл не выбран",
+            pack_options={'side': 'left', 'padx': 10}
         )
-        self.builder.button(
-            file_frame, text="Типы", command=self.on_show_types, pack_options={'side': 'right', 'padx': 5}
+        self.columns_types_button = self.builder.button(
+            self.file_settings_and_types_frame,
+            text="Типы",
+            command=self.show_types,
+            pack_options={'side': 'right', 'padx': 5}
         )
 
-    def build_options_frame(self, parent: Frame) -> None:
-        options_frame = self.builder.frame(
-            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+    def get_file(self):
+        file_path = filedialog.askopenfilename(
+            title="Выберите файл",
+            filetypes=[("Excel and CSV files", "*.xlsx *.xls *.csv")]
         )
-        self.build_excel_frame(options_frame)
-        self.build_csv_frame(options_frame)
+        if file_path:
+            self.model.file_name = file_path
+            self.file_name_label.config(text=file_path)
 
-    def build_excel_frame(self, parent: Frame) -> None:
-        excel_frame = self.builder.frame(
-            parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
+    def show_types(self):
+        print("Показаны типы файлов")
+
+
+class FileParseOptionsFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.file_parse_options_frame = None
+        self.csv_options_frame = None
+        self.excel_options_frame = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Опции для Excel
+        self.file_parse_options_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.csv_options_frame = CSVOptionsFrame(self.file_parse_options_frame, self.builder, self.model)
+        self.excel_options_frame = ExcelOptionsFrame(self.file_parse_options_frame, self.builder, self.model)
+
+
+class CSVOptionsFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.csv_options_frame = None
+        self.delimiter_label = None
+        self.delimiter_entry = None
+        self.header_checkbutton = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Опции для CSV
+        self.csv_options_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
+        )
+        self.delimiter_label = self.builder.label(
+            self.csv_options_frame,
+            text="Разделитель:",
+            pack_options={'side': 'left'}
+        )
+        self.delimiter_entry = self.builder.entry(
+            self.csv_options_frame, width=5,
+            pack_options={'side': 'left', 'padx': 5}
+        )
+        self.header_checkbutton = self.builder.checkbutton(
+            self.csv_options_frame,
+            text="Заголовок",
+            pack_options={'side': 'left', 'padx': 5}
+        )
+
+
+class ExcelOptionsFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.excel_options_frame = None
+        self.sheet_label = None
+        self.sheet_combobox = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.excel_options_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
         )
         self.builder.label(
-            excel_frame, text="Выберите лист:", pack_options={'side': 'left'}
+            self.excel_options_frame,
+            text="Выберите лист:",
+            pack_options={'side': 'left'}
         )
         self.builder.combobox(
-            excel_frame, pack_options={'side': 'left', 'padx': 5}, state="readonly"
+            self.excel_options_frame,
+            pack_options={'side': 'left', 'padx': 5},
+            state="readonly"
         )
 
-    def build_csv_frame(self, parent: Frame) -> None:
-        csv_frame = self.builder.frame(
-            parent, pack_options={'padx': 5, 'pady': 5, 'fill': 'x'}
-        )
-        self.builder.label(
-            csv_frame,
-            text="Разделитель:", pack_options={'side': 'left'}
-        )
-        self.builder.entry(
-            csv_frame, width=5, pack_options={'side': 'left', 'padx': 5}
-        )
-        self.builder.checkbutton(
-            csv_frame, text="Заголовок", pack_options={'side': 'left', 'padx': 5}
-        )
 
-    def build_table_frame(self, parent: Frame) -> None:
-        table_frame = self.builder.frame(
-            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+class TableNameAndCodeGenerateFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.table_name_and_code_generate_frame = None
+        self.table_name_label = None
+        self.table_name_entry = None
+        self.generate_code_button = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.table_name_and_code_generate_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
         )
         self.builder.label(
-            table_frame, text="Имя таблицы:", pack_options={'side': 'left'}
+            self.table_name_and_code_generate_frame,
+            text="Имя таблицы:",
+            pack_options={'side': 'left'}
         )
         self.builder.entry(
-            table_frame, width=30, pack_options={'side': 'left', 'padx': 5}
+            self.table_name_and_code_generate_frame, width=30,
+            pack_options={'side': 'left', 'padx': 5}
         )
         self.builder.button(
-            table_frame, text="Генерация кода", command=self.on_generate_sql, pack_options={'side': 'right', 'padx': 5}
+            self.table_name_and_code_generate_frame,
+            text="Генерация кода",
+            command=self.generate_sql,
+            pack_options={'side': 'right', 'padx': 5}
         )
 
-    def build_headers_frame(self, parent: Frame) -> None:
-        headers_frame = self.builder.frame(
-            parent, pack_options={'padx': 10, 'pady': (5, 0), 'fill': 'x'}
+    def generate_sql(self):
+        print("Генерация SQL")
+
+
+class HeadersFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.headers_frame = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.headers_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': (5, 0), 'fill': 'x'}
         )
-        # Используем grid для размещения заголовков столбцов
         headers = [
             ("Имя столбца", 20),
             ("Тип (наш)", 15),
@@ -115,51 +253,92 @@ class MainWindow(tk.Tk):
             ("Включить", 10)
         ]
         for i, (text, width) in enumerate(headers):
-            lbl = ttk.Label(headers_frame, text=text, width=width, anchor="center")
+            lbl = ttk.Label(self.headers_frame, text=text, width=width, anchor="center")
             lbl.grid(row=0, column=i, padx=5)
 
-    def build_columns_canvas(self, parent: Frame) -> None:
+
+class ColumnsConfigFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel, ):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+        self.columns_config_frame = None
+        self.columns_canvas = None
+        self.columns_scrollbar = None
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.columns_config_frame = self.builder.frame(
+            self.parent, pack_options={'fill': 'both', 'expand': True}
+        )
         # Область для столбцов с прокруткой
-        canvas = self.builder.canvas(
-            parent, pack_options={'side': 'left', 'fill': 'both', 'expand': True}
+        self.columns_canvas = self.builder.canvas(
+            self.columns_config_frame, pack_options={'side': 'left', 'fill': 'both', 'expand': True}
         )
-        scrollbar = self.builder.scrollbar(
-            parent, command=canvas.yview, pack_options={'side': 'right', 'fill': 'y'}
+        self.columns_scrollbar = self.builder.scrollbar(
+            self.columns_config_frame, command=self.columns_canvas.yview,
+            pack_options={'side': 'right', 'fill': 'y'}
         )
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.columns_canvas.configure(yscrollcommand=self.columns_scrollbar.set)
 
-    def build_code_frame(self, parent: Frame) -> None:
-        code_frame = self.builder.frame(
-            parent, pack_options={'side': 'right', 'fill': 'both', 'expand': True}
-        )
-        self.builder.text(
-            code_frame, pack_options={'padx': 10, 'pady': 5, 'fill': 'both', 'expand': True}
-        )
-        self.build_code_buttons_frame(code_frame)
 
-    def build_code_buttons_frame(self, parent: Frame) -> None:
-        btn_frame = self.builder.frame(
-            parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+class CodeFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.code_space_frame = None
+        self.code_text = None
+        self.code_buttons_frame = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.code_space_frame = self.builder.frame(
+            self.parent, pack_options={'side': 'right', 'fill': 'both', 'expand': True}
         )
-        self.builder.button(
-            btn_frame, text="Копировать все", command=self.on_copy_all, pack_options={'side': 'left', 'padx': 5}
+        self.code_text = self.builder.text(
+            self.code_space_frame, pack_options={'padx': 10, 'pady': 5, 'fill': 'both', 'expand': True}
         )
-        self.builder.button(
-            btn_frame, text="Ошибки", command=self.on_show_errors, pack_options={'side': 'right', 'padx': 5}
-        )
+        self.code_buttons_frame = CodeButtonsFrame(self.code_space_frame, self.builder, self.model)
 
-    # Обработчики событий (пример)
-    def on_select_file(self):
-        print("Выбран файл")
-
-    def on_show_types(self):
-        print("Показаны типы файлов")
-
-    def on_generate_sql(self):
-        print("Генерация SQL")
-
-    def on_copy_all(self):
+    def copy_all(self):
         print("Копировать весь код")
+        # Реализуйте копирование содержимого text_widget в буфер обмена
 
-    def on_show_errors(self):
+    def show_errors(self):
+        print("Показ ошибок")
+        # Реализуйте отображение окна с ошибками
+
+
+class CodeButtonsFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+
+        self.code_buttons_frame = None
+        self.copy_all_button = None
+        self.errors_button = None
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.code_buttons_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.copy_all_button = self.builder.button(
+            self.code_buttons_frame, text="Копировать все", command=self.copy_code,
+            pack_options={'side': 'left', 'padx': 5}
+        )
+        self.errors_button = self.builder.button(
+            self.code_buttons_frame, text="Ошибки", command=self.show_errors,
+            pack_options={'side': 'right', 'padx': 5}
+        )
+
+    def copy_code(self):
+        print("Код скоприован")
+
+    def show_errors(self):
         print("Показ ошибок")
