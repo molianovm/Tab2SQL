@@ -2,13 +2,13 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from utils.widget_builder import WidgetBuilder
 from models.app import AppModel
 from services import DataLoaderFactory, DataProcessing
 from utils.errors import CSVParseError
 from utils.logger import VALUE_FORMATTER_ERRORS
 from utils.sql_formatter import SQLFormatterFactory
 from utils.value_formatter import ValueFormatterFactory
+from utils.widget_builder import WidgetBuilder
 
 
 class MainWindow(tk.Tk):
@@ -18,7 +18,7 @@ class MainWindow(tk.Tk):
         self.geometry("1200x600")
         self.minsize(1200, 600)
         self.builder = WidgetBuilder()
-        self.model = AppModel()  # Модель содержит data_processing (экземпляр DataProcessing)
+        self.model = AppModel()
 
         self.main_frame = None
         self.settings_frame = None
@@ -29,7 +29,6 @@ class MainWindow(tk.Tk):
     def create_widgets(self):
         self._build_main_frame()
         self.code_frame = CodeFrame(self.main_frame, self.builder, self.model)
-        # Передаем ссылку на CodeFrame, чтобы после генерации SQL можно было обновить текст кнопки ошибок
         self.settings_frame = SettingsFrame(self.main_frame, self.builder, self.model, code_frame=self.code_frame)
 
     def _build_main_frame(self):
@@ -144,9 +143,7 @@ class FileSettingsAndTypesFrame:
                     sheet_name=self.model.selected_sheet_var.get()
                 )
             self.model.data_processing = DataProcessing(df, table_name)
-            self.model.table_name_var.set(self.model.data_processing.table.name)
             self.update_callback()
-            print("Загружена таблица:", self.model.data_processing.table)
 
     def show_types(self):
         factory = ValueFormatterFactory()
@@ -224,7 +221,7 @@ class CSVOptionsFrame:
             command=self.on_csv_options_change
         )
 
-    def on_csv_options_change(self, event=None):
+    def on_csv_options_change(self, event):
         if self.model.file_path and self.model.file_extension == ".csv":
             delimiter = self.model.delimiter_var.get()
             header = self.model.header_var.get()
@@ -238,9 +235,6 @@ class CSVOptionsFrame:
                 messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {e}")
                 return
             self.model.data_processing = DataProcessing(df, table_name)
-            base_name = os.path.splitext(os.path.basename(self.model.file_path))[0]
-            self.model.table_name_var.set(base_name.lower())
-            print("CSV обновлён:", self.model.data_processing.table)
 
     def update_options(self):
         self.delimiter_entry.delete(0, tk.END)
@@ -297,8 +291,6 @@ class ExcelOptionsFrame:
                 sheet_name=sheet_name
             )
             self.model.data_processing = DataProcessing(df, table_name)
-            self.model.table_name_var.set(self.model.data_processing.table.name)
-            print("Excel загружен:", self.model.data_processing.table)
             self.update_callback()
 
     def hide(self):
@@ -329,7 +321,7 @@ class TableNameAndCodeGenerateFrame:
         )
         self.table_name_entry = self.builder.entry(
             self.table_name_and_code_generate_frame,
-            textvariable=self.model.table_name_var,
+            textvariable=tk.StringVar(value=""),
             width=30,
             pack_options={'side': 'left', 'padx': 5}
         )
@@ -344,21 +336,16 @@ class TableNameAndCodeGenerateFrame:
     def set_table_name(self):
         new_name = self.table_name_entry.get()
         self.model.data_processing.table.name = new_name
-        self.model.table_name_var.set(new_name)
-        print("Имя таблицы обновлено:", new_name)
 
     def update_for_csv(self):
-        base_name = os.path.splitext(os.path.basename(self.model.file_path))[0]
-        self.table_name_entry.delete(0, tk.END)
-        self.table_name_entry.insert(0, base_name.lower())
-        self.model.data_processing.table.name = base_name.lower()
-        self.model.table_name_var.set(base_name.lower())
+        if self.model.data_processing is not None:
+            self.table_name_entry.delete(0, tk.END)
+            self.table_name_entry.insert(0, self.model.data_processing.table.name)
 
     def update_for_excel(self):
         if self.model.data_processing is not None:
             self.table_name_entry.delete(0, tk.END)
             self.table_name_entry.insert(0, self.model.data_processing.table.name)
-            self.model.table_name_var.set(self.model.data_processing.table.name)
 
     def generate_sql(self):
         if self.model.data_processing is None:
@@ -370,16 +357,12 @@ class TableNameAndCodeGenerateFrame:
         valid_values = dp.valid_values
         table_name = dp.table.name
         try:
-
             sql_code = SQLFormatterFactory().get_sql(table_name, valid_columns, valid_values, sql_formatter=1)
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сгенерировать SQL: {e}")
             return
         self.model.sql_script = sql_code
-        print("Сгенерирован SQL:")
-        print(sql_code)
         self.code_frame.update_code(sql_code)
-        # Обновляем текст кнопки ошибок с количеством ошибок
         self.code_frame.code_buttons_frame.update_errors_button()
 
 
@@ -411,7 +394,7 @@ class ColumnsConfigFrame:
     def __init__(self, parent, builder: WidgetBuilder, model: AppModel):
         self.parent = parent
         self.builder = builder
-        self.model = model  # self.model.data_processing.table – объект Table
+        self.model = model
         self.valid_types = ValueFormatterFactory().types
         self.columns_config_frame = None
         self.columns_canvas = None
@@ -451,16 +434,13 @@ class ColumnsConfigFrame:
     def create_column_row(self, row_index, col_obj):
         row_frame = ttk.Frame(self.inner_frame)
         row_frame.grid(row=row_index, column=0, sticky="w", padx=5, pady=2)
-        # Поле для изменения имени колонки
         col_name_var = tk.StringVar(value=col_obj.new_name)
         col_entry = self.builder.entry(row_frame, width=20, pack_options={'side': 'left'})
         col_entry.config(textvariable=col_name_var)
         col_entry.bind("<Return>", lambda event, c=col_obj, v=col_name_var: self.update_column_name(c, v.get()))
-        # Отображаем дружественное имя текущего типа
         default_display = self.valid_types.get(col_obj.new_type, col_obj.new_type)
         type_label = ttk.Label(row_frame, text=default_display, width=15, anchor="center")
         type_label.pack(side="left", padx=5)
-        # Доступные типы (дружественные имена)
         display_options = list(self.valid_types.values())
         new_type_var = tk.StringVar(value=default_display)
         new_type_combo = self.builder.combobox(
@@ -471,29 +451,24 @@ class ColumnsConfigFrame:
             "<<ComboboxSelected>>",
             lambda event, c=col_obj, v=new_type_var: self.update_column_type(c, v.get())
         )
-        # Флажок для включения колонки с trace
         include_var = tk.BooleanVar(value=col_obj.include)
         include_cb = self.builder.checkbutton(
             row_frame, text="", variable=include_var, pack_options={'side': 'left', 'padx': 5}
         )
         include_var.trace("w", lambda *args, c=col_obj, var=include_var: self.update_column_include(c, var.get()))
-        # Сохраняем изменения
         col_obj.new_name = col_name_var.get()
         col_obj.new_type = self.get_key_from_display(new_type_var.get())
         col_obj.include = include_var.get()
 
     def update_column_name(self, col_obj, new_name):
         col_obj.new_name = new_name
-        print(f"Колонка '{col_obj.column_name}' переименована в '{new_name}'.")
 
     def update_column_type(self, col_obj, new_display):
         new_type = self.get_key_from_display(new_display)
         col_obj.new_type = new_type
-        print(f"Колонка '{col_obj.column_name}' обновлена до типа '{new_type}'.")
 
     def update_column_include(self, col_obj, include_value):
         col_obj.include = include_value
-        print(f"Колонка '{col_obj.column_name}' включена: {include_value}")
 
     def get_key_from_display(self, display):
         inverted = {v: k for k, v in self.valid_types.items()}
@@ -501,12 +476,10 @@ class ColumnsConfigFrame:
 
     def update_for_csv(self):
         if self.model.data_processing is not None:
-            print("Обновление колонок для CSV")
             self.refresh_columns()
 
     def update_for_excel(self):
         if self.model.data_processing is not None:
-            print("Обновление колонок для Excel")
             self.refresh_columns()
 
 
@@ -582,7 +555,6 @@ class CodeButtonsFrame:
         if len(VALUE_FORMATTER_ERRORS) == 0:
             messagebox.showinfo("Ошибки", "Ошибок нет")
         else:
-            # Открываем окно с логом ошибок
             error_win = tk.Toplevel(self.parent)
             error_win.title("Лог ошибок")
             error_text = tk.Text(error_win)
@@ -594,10 +566,8 @@ class CodeButtonsFrame:
     def update_errors_button(self):
         count = len(VALUE_FORMATTER_ERRORS)
         if count == 0:
-            # Скрываем кнопку, если ошибок нет
             self.errors_button.pack_forget()
         else:
-            # Обновляем текст кнопки и показываем её, если она скрыта
             self.errors_button.config(text=f"Ошибки ({count})")
             if not self.errors_button.winfo_ismapped():
                 self.errors_button.pack(side="right", padx=5)
