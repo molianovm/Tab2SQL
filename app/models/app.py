@@ -16,6 +16,7 @@ class AppModel:
         self.column_settings: dict[str, str] = {}
         self.sql_script: str = ""
         self.errors: list[str] = []
+        self.sql_template_type_var: tk.StringVar = tk.StringVar(value="Тип 1")
         # CSV
         self.delimiter_var: tk.StringVar = tk.StringVar(value=";")
         self.header_var: tk.BooleanVar = tk.BooleanVar(value=True)

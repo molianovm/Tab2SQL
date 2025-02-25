@@ -37,17 +37,20 @@ class SQLFormatter:
 
 class SQLFormatterFactory:
     """Класс для выбора SQL шаблона для форматирования"""
-    VALID_SQL_FORMATTERS = [1, 2]
+    VALID_SQL_FORMATTERS = {
+        "Тип 1",
+        "Тип 2"
+    }
 
     @property
-    def types(self) -> list[int]:
+    def types(self) -> set[str]:
         """
         Возвращает список возможных типов SQL шаблонов
         :return: Список возможных типов SQL шаблонов
         """
         return self.VALID_SQL_FORMATTERS
 
-    def get_sql(self, table_name: str, columns: list[str], values: list[str], sql_formatter: int = 1):
+    def get_sql(self, table_name: str, columns: list[str], values: list[str], sql_formatter: str = 'Тип 1'):
         """
         Возвращает SQL запрос на основе списка имен колонок и значений
         :param table_name: Название таблицы
@@ -59,13 +62,13 @@ class SQLFormatterFactory:
         :raises SQLFormatterNotFoundError: Если тип SQL шаблона для форматирования не найден
         """
         formatters = {
-            1: SQLFormatter(table_name, columns, values).formatter_1,
-            2: SQLFormatter(table_name, columns, values).formatter_2
+            'Тип 1': SQLFormatter(table_name, columns, values).formatter_1,
+            'Тип 2': SQLFormatter(table_name, columns, values).formatter_2
         }
         validate_keys(
-            expected=set(self.types),
+            expected=self.types,
             expected_name="types",
-            actual=set(formatters),
+            actual=set(formatters.keys()),
             actual_name="formatters"
         )
         if sql_formatter not in self.types:

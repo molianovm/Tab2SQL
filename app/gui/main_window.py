@@ -44,9 +44,10 @@ class SettingsFrame:
         self.code_frame = code_frame
 
         self.settings_frame = None
-        self.file_settings_and_types_frame = None
+        self.file_settings_frame = None
         self.file_parse_options_frame = None
-        self.table_name_and_code_generate_frame = None
+        self.table_name_frame = None
+        self.generate_sql_frame = None
         self.headers_frame = None
         self.columns_config_frame = None
 
@@ -56,15 +57,18 @@ class SettingsFrame:
         self.settings_frame = self.builder.frame(
             self.parent,
             pack_options={'side': 'left', 'fill': 'y', 'expand': False},
-            width=500
+            width=450
         )
-        self.file_settings_and_types_frame = FileSettingsAndTypesFrame(
+        self.file_settings_frame = FileSettingsFrame(
             self.settings_frame, self.builder, self.model, update_callback=self.on_file_selected
         )
         self.file_parse_options_frame = FileParseOptionsFrame(
             self.settings_frame, self.builder, self.model, update_callback=self.on_sheet_changed
         )
-        self.table_name_and_code_generate_frame = TableNameAndCodeGenerateFrame(
+        self.table_name_frame = TableNameFrame(
+            self.settings_frame, self.builder, self.model, code_frame=self.code_frame
+        )
+        self.generate_sql_frame = GenerateSQLFrame(
             self.settings_frame, self.builder, self.model, code_frame=self.code_frame
         )
         self.headers_frame = HeadersFrame(self.settings_frame, self.builder, self.model)
@@ -73,19 +77,19 @@ class SettingsFrame:
     def on_file_selected(self):
         if self.model.file_extension == ".csv":
             self.file_parse_options_frame.update_csv_options()
-            self.table_name_and_code_generate_frame.update_for_csv()
+            self.table_name_frame.update_for_csv()
             self.columns_config_frame.update_for_csv()
         elif self.model.file_extension in (".xlsx", ".xls"):
             self.file_parse_options_frame.update_excel_options()
-            self.table_name_and_code_generate_frame.update_for_excel()
+            self.table_name_frame.update_for_excel()
             self.columns_config_frame.update_for_excel()
 
     def on_sheet_changed(self):
-        self.table_name_and_code_generate_frame.update_for_excel()
+        self.table_name_frame.update_for_excel()
         self.columns_config_frame.update_for_excel()
 
 
-class FileSettingsAndTypesFrame:
+class FileSettingsFrame:
     def __init__(self, parent, builder: WidgetBuilder, model: AppModel, update_callback):
         self.parent = parent
         self.builder = builder
@@ -109,16 +113,12 @@ class FileSettingsAndTypesFrame:
             command=self.select_file,
             pack_options={'side': 'left'}
         )
-        self.file_name_label = self.builder.label(
+        self.file_name_label = self.builder.entry(
             self.file_settings_and_types_frame,
-            text="Файл не выбран",
+            # text="Файл не выбран",
+            state="readonly",
+            width=40,
             pack_options={'side': 'left', 'padx': 10}
-        )
-        self.columns_types_button = self.builder.button(
-            self.file_settings_and_types_frame,
-            text="Типы",
-            command=self.show_types,
-            pack_options={'side': 'right', 'padx': 5}
         )
 
     def select_file(self):
@@ -128,7 +128,12 @@ class FileSettingsAndTypesFrame:
         )
         if file_path:
             self.model.file_path = file_path
-            self.file_name_label.config(text=self.model.file_path)
+            # self.file_name_label.config(text=self.model.file_path)
+            self.file_name_label.config(state="normal")
+            self.file_name_label.delete(0, tk.END)
+            self.file_name_label.insert(0, self.model.file_path)
+            self.file_name_label.xview_moveto(1.0)
+            self.file_name_label.config(state="readonly")
             self.model.file_extension = os.path.splitext(self.model.file_path)[1]
             try:
                 df, table_name = self._load_data()
@@ -155,11 +160,6 @@ class FileSettingsAndTypesFrame:
                 sheet_name=self.model.selected_sheet_var.get()
             )
         return df, table_name
-
-    def show_types(self):
-        factory = ValueFormatterFactory()
-        types_info = "\n".join([f"{k} - {v}" for k, v in factory.types.items()])
-        messagebox.showinfo("Поддерживаемые типы", types_info)
 
 
 class FileParseOptionsFrame:
@@ -310,7 +310,7 @@ class ExcelOptionsFrame:
         self.excel_options_frame.pack_forget()
 
 
-class TableNameAndCodeGenerateFrame:
+class TableNameFrame:
     def __init__(self, parent, builder: WidgetBuilder, model: AppModel, code_frame):
         self.parent = parent
         self.builder = builder
@@ -319,8 +319,9 @@ class TableNameAndCodeGenerateFrame:
 
         self.table_name_and_code_generate_frame = None
         self.table_name_entry = None
+        self.template_combobox = None
         self.generate_code_button = None
-
+        self.show_types_button = None
         self.create_widgets()
 
     def create_widgets(self):
@@ -339,10 +340,11 @@ class TableNameAndCodeGenerateFrame:
             pack_options={'side': 'left', 'padx': 5}
         )
         self.table_name_entry.bind("<Return>", lambda event: self.set_table_name())
-        self.generate_code_button = self.builder.button(
+        self.show_types_button = self.builder.button(
             self.table_name_and_code_generate_frame,
-            text="Генерация кода",
-            command=self.generate_sql,
+            text="?",
+            command=self.show_types,
+            width=5,
             pack_options={'side': 'right', 'padx': 5}
         )
 
@@ -360,6 +362,52 @@ class TableNameAndCodeGenerateFrame:
             self.table_name_entry.delete(0, tk.END)
             self.table_name_entry.insert(0, self.model.data_processing.table.name)
 
+    def show_types(self):
+        factory = ValueFormatterFactory()
+        types_info = "\n".join([f"{k} - {v}" for k, v in factory.types.items()])
+        messagebox.showinfo("Поддерживаемые типы", types_info)
+
+
+class GenerateSQLFrame:
+    def __init__(self, parent, builder: WidgetBuilder, model: AppModel, code_frame):
+        self.parent = parent
+        self.builder = builder
+        self.model = model
+        self.code_frame = code_frame
+
+        self.generate_sql_frame = None
+        self.sql_template_label = None
+        self.sql_template_combobox = None
+        self.generate_sql_button = None
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.generate_sql_frame = self.builder.frame(
+            self.parent, pack_options={'padx': 10, 'pady': 5, 'fill': 'x'}
+        )
+        self.sql_template_label = self.builder.label(
+            self.generate_sql_frame,
+            text="Шаблон SQL:",
+            pack_options={'side': 'left'}
+        )
+        self.sql_template_combobox = self.builder.combobox(
+            self.generate_sql_frame,
+            textvariable=self.model.sql_template_type_var,
+            values=list(SQLFormatterFactory().types),
+            state="readonly",
+            pack_options={'side': 'left', 'padx': 5}
+        )
+        self.sql_template_combobox.bind("<<ComboboxSelected>>", lambda event: self.set_sql_template())
+        self.generate_sql_button = self.builder.button(
+            self.generate_sql_frame,
+            text="Генерация SQL",
+            command=self.generate_sql,
+            pack_options={'side': 'right', 'padx': 5}
+        )
+
+    def set_sql_template(self):
+        self.model.sql_template_type_var.set(self.sql_template_combobox.get())
+
     def generate_sql(self):
         if self.model.data_processing is None:
             messagebox.showwarning("Предупреждение", "Таблица не создана.")
@@ -370,7 +418,12 @@ class TableNameAndCodeGenerateFrame:
         valid_values = dp.valid_values
         table_name = dp.table.name
         try:
-            sql_code = SQLFormatterFactory().get_sql(table_name, valid_columns, valid_values, sql_formatter=1)
+            sql_code = SQLFormatterFactory().get_sql(
+                table_name,
+                valid_columns,
+                valid_values,
+                sql_formatter=self.model.sql_template_type_var.get()
+            )
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сгенерировать SQL: {e}")
             return
@@ -393,10 +446,10 @@ class HeadersFrame:
             self.parent, pack_options={'padx': 10, 'pady': (5, 0), 'fill': 'x'}
         )
         headers = [
-            ("Имя столбца", 22),
-            ("Тип", 13),
-            ("Новый тип", 12),
-            ("Включить", 14)
+            ("Имя столбца", 30),
+            ("Тип", 7),
+            ("Новый тип", 15),
+            ("Включить", 10)
         ]
         for i, (text, width) in enumerate(headers):
             lbl = ttk.Label(self.headers_frame, text=text, width=width, anchor="center")
@@ -448,7 +501,7 @@ class ColumnsConfigFrame:
         row_frame = ttk.Frame(self.inner_frame)
         row_frame.grid(row=row_index, column=0, sticky="w", padx=5, pady=2)
         col_name_var = tk.StringVar(value=col_obj.new_name)
-        col_entry = self.builder.entry(row_frame, width=25, pack_options={'side': 'left'})
+        col_entry = self.builder.entry(row_frame, width=30, pack_options={'side': 'left'})
         col_entry.config(textvariable=col_name_var)
         col_entry.bind("<Return>", lambda event, c=col_obj, v=col_name_var: self.update_column_name(c, v.get()))
         default_display = self.valid_types.get(col_obj.new_type, col_obj.new_type)
@@ -457,7 +510,7 @@ class ColumnsConfigFrame:
         display_options = list(self.valid_types.values())
         new_type_var = tk.StringVar(value=default_display)
         new_type_combo = self.builder.combobox(
-            row_frame, textvariable=new_type_var, values=display_options, state="readonly", width=13,
+            row_frame, textvariable=new_type_var, values=display_options, state="readonly", width=11,
             pack_options={'side': 'left', 'padx': 5}
         )
         new_type_combo.bind(
