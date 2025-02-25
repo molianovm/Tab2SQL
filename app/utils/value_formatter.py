@@ -19,6 +19,8 @@ class ValueFormatter:
         Форматирует значение как строку с одинарными кавычками
         :return: Форматированное строковое значение
         """
+        if self.value == 'NULL':
+            return 'NULL'
         return f"'{str(self.value).strip()}'"
 
     def str_r_formatter(self) -> str:
@@ -26,6 +28,8 @@ class ValueFormatter:
         Форматирует значение как строку, преобразуя числовые типы по необходимости
         :return: Форматированное строковое значение с округлением числовых значений
         """
+        if self.value == 'NULL':
+            return 'NULL'
         try:
             self.value = float(self.value)
             self.value = self._get_round_value()

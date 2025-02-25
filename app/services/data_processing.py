@@ -78,13 +78,13 @@ class DataProcessing:
         """
         try:
             return ValueFormatterFactory().get_value(column_type, input_value)
-        except (ValueError, FailedValueFormattingError):
+        except (ValueError, TypeError, FailedValueFormattingError):
             readable_type = ValueFormatterFactory().types[column_type]
             message = (
                 f"Ошибка преобразования [{row_number}, {column_name}]: "
                 f"входное значение «{input_value}» в тип «{readable_type}»")
             log_error(logger=VALUE_FORMATTER_ERRORS, message=message)
-            return "NULL"
+            return str("NULL")
 
     def _get_table(self, dataframe: pd.DataFrame, table_name: str) -> Table:
         """

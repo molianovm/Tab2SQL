@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from models.app import AppModel
 from services import DataLoaderFactory, DataProcessing
-from utils.errors import CSVParseError
+from utils.errors import CSVParseError, CSVIsEmptyError
 from utils.logger import VALUE_FORMATTER_ERRORS
 from utils.sql_formatter import SQLFormatterFactory
 from utils.value_formatter import ValueFormatterFactory
@@ -130,20 +130,31 @@ class FileSettingsAndTypesFrame:
             self.model.file_path = file_path
             self.file_name_label.config(text=self.model.file_path)
             self.model.file_extension = os.path.splitext(self.model.file_path)[1]
-            if self.model.file_extension == ".csv":
-                df, table_name = DataLoaderFactory().load_data(
-                    file_path=self.model.file_path,
-                    delimiter=self.model.delimiter_var.get(),
-                    header=self.model.header_var.get()
-                )
-            elif self.model.file_extension in (".xlsx", ".xls"):
-                self.model.get_sheet_names()
-                df, table_name = DataLoaderFactory().load_data(
-                    file_path=self.model.file_path,
-                    sheet_name=self.model.selected_sheet_var.get()
-                )
-            self.model.data_processing = DataProcessing(df, table_name)
-            self.update_callback()
+            try:
+                df, table_name = self._load_data()
+                if df.empty:
+                    messagebox.showerror("Ошибка", "Отсутствуют данные в выбранном листе")
+                self.model.data_processing = DataProcessing(df, table_name.lower())
+                self.update_callback()
+            except CSVIsEmptyError:
+                messagebox.showerror("Ошибка", "CSV-файл пустой")
+
+    def _load_data(self):
+        df = None
+        table_name = None
+        if self.model.file_extension == ".csv":
+            df, table_name = DataLoaderFactory().load_data(
+                file_path=self.model.file_path,
+                delimiter=self.model.delimiter_var.get(),
+                header=self.model.header_var.get()
+            )
+        elif self.model.file_extension in (".xlsx", ".xls"):
+            self.model.get_sheet_names()
+            df, table_name = DataLoaderFactory().load_data(
+                file_path=self.model.file_path,
+                sheet_name=self.model.selected_sheet_var.get()
+            )
+        return df, table_name
 
     def show_types(self):
         factory = ValueFormatterFactory()
@@ -234,7 +245,7 @@ class CSVOptionsFrame:
             except CSVParseError as e:
                 messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {e}")
                 return
-            self.model.data_processing = DataProcessing(df, table_name)
+            self.model.data_processing = DataProcessing(df, table_name.lower())
 
     def update_options(self):
         self.delimiter_entry.delete(0, tk.END)
@@ -290,7 +301,9 @@ class ExcelOptionsFrame:
                 file_path=self.model.file_path,
                 sheet_name=sheet_name
             )
-            self.model.data_processing = DataProcessing(df, table_name)
+            if df.empty:
+                messagebox.showerror("Ошибка", "Отсутствуют данные в выбранном листе")
+            self.model.data_processing = DataProcessing(df, table_name.lower())
             self.update_callback()
 
     def hide(self):
@@ -380,10 +393,10 @@ class HeadersFrame:
             self.parent, pack_options={'padx': 10, 'pady': (5, 0), 'fill': 'x'}
         )
         headers = [
-            ("Имя столбца", 20),
-            ("Тип (наш)", 15),
-            ("Новый тип", 15),
-            ("Включить", 10)
+            ("Имя столбца", 22),
+            ("Тип", 13),
+            ("Новый тип", 12),
+            ("Включить", 14)
         ]
         for i, (text, width) in enumerate(headers):
             lbl = ttk.Label(self.headers_frame, text=text, width=width, anchor="center")
@@ -435,16 +448,16 @@ class ColumnsConfigFrame:
         row_frame = ttk.Frame(self.inner_frame)
         row_frame.grid(row=row_index, column=0, sticky="w", padx=5, pady=2)
         col_name_var = tk.StringVar(value=col_obj.new_name)
-        col_entry = self.builder.entry(row_frame, width=20, pack_options={'side': 'left'})
+        col_entry = self.builder.entry(row_frame, width=25, pack_options={'side': 'left'})
         col_entry.config(textvariable=col_name_var)
         col_entry.bind("<Return>", lambda event, c=col_obj, v=col_name_var: self.update_column_name(c, v.get()))
         default_display = self.valid_types.get(col_obj.new_type, col_obj.new_type)
-        type_label = ttk.Label(row_frame, text=default_display, width=15, anchor="center")
+        type_label = ttk.Label(row_frame, text=default_display, width=10, anchor="center")
         type_label.pack(side="left", padx=5)
         display_options = list(self.valid_types.values())
         new_type_var = tk.StringVar(value=default_display)
         new_type_combo = self.builder.combobox(
-            row_frame, textvariable=new_type_var, values=display_options, state="readonly",
+            row_frame, textvariable=new_type_var, values=display_options, state="readonly", width=13,
             pack_options={'side': 'left', 'padx': 5}
         )
         new_type_combo.bind(
@@ -453,7 +466,7 @@ class ColumnsConfigFrame:
         )
         include_var = tk.BooleanVar(value=col_obj.include)
         include_cb = self.builder.checkbutton(
-            row_frame, text="", variable=include_var, pack_options={'side': 'left', 'padx': 5}
+            row_frame, text="", variable=include_var, pack_options={'side': 'left', 'padx': 25}
         )
         include_var.trace("w", lambda *args, c=col_obj, var=include_var: self.update_column_include(c, var.get()))
         col_obj.new_name = col_name_var.get()
