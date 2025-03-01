@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, Canvas, Text
+from tkinter import ttk, Canvas, Text, Toplevel, Tk
 from tkinter.ttk import Frame, Button, Label, Entry, Combobox, Checkbutton
 from typing import Callable, Any, Literal
 
@@ -9,7 +9,7 @@ class WidgetBuilder:
 
     @staticmethod
     def frame(
-        parent: Frame,
+        parent: Tk | Frame,
         pack_options: dict[str, Any] | None = None,
         **widget_options: Any
     ) -> Frame:
@@ -51,7 +51,7 @@ class WidgetBuilder:
 
     @staticmethod
     def label(
-        parent: Frame,
+        parent: Frame | Toplevel,
         text: str,
         pack_options: dict[str, Any] | None = None,
         **widget_options: Any
@@ -185,3 +185,66 @@ class WidgetBuilder:
         sb = ttk.Scrollbar(parent, orient=orient, command=command, **widget_options)
         sb.pack(**pack_options)
         return sb
+
+    @staticmethod
+    def scrolled_text(
+        parent: Frame | Toplevel,
+        vertical: bool = True,
+        horizontal: bool = True,
+        pack_options: dict[str, Any] | None = None,
+        **text_options
+    ) -> tuple[Text, Frame]:
+        return WidgetBuilder._scrolled_widget(tk.Text, parent, vertical, horizontal, pack_options, **text_options)
+
+    @staticmethod
+    def scrolled_canvas(
+        parent: Frame | Toplevel,
+        vertical: bool = True,
+        horizontal: bool = True,
+        pack_options: dict[str, Any] | None = None,
+        **canvas_options
+    ) -> tuple[Canvas, Frame]:
+        return WidgetBuilder._scrolled_widget(tk.Canvas, parent, vertical, horizontal, pack_options, **canvas_options)
+
+    @staticmethod
+    def _scrolled_widget(
+        widget_class,
+        parent: Frame | Toplevel,
+        vertical: bool = True,
+        horizontal: bool = True,
+        pack_options: dict[str, Any] | None = None,
+        **widget_options
+    ) -> tuple[Any, Frame]:
+        """
+        Создает контейнер с виджетом (указанным через widget_class) и опциональными скроллбарами.
+
+        :param widget_class: Класс виджета (например, tk.Text или tk.Canvas).
+        :param parent: Родительский виджет.
+        :param vertical: Если True, добавляет вертикальный скроллбар.
+        :param horizontal: Если True, добавляет горизонтальный скроллбар.
+        :param pack_options: Параметры упаковки для контейнера.
+        :param widget_options: Дополнительные параметры для создаваемого виджета.
+        :return: Кортеж (widget_instance, container)
+        """
+        if pack_options is None:
+            pack_options = {}
+        container = tk.Frame(parent)
+        container.pack(**pack_options)
+
+        widget_instance = widget_class(container, **widget_options)
+        widget_instance.grid(row=0, column=0, sticky="nsew")
+
+        if vertical:
+            v_scroll = tk.Scrollbar(container, orient="vertical", command=widget_instance.yview, cursor="hand2")
+            v_scroll.grid(row=0, column=1, sticky="ns")
+            widget_instance.config(yscrollcommand=v_scroll.set)
+
+        if horizontal:
+            h_scroll = tk.Scrollbar(container, orient="horizontal", command=widget_instance.xview, cursor="hand2")
+            h_scroll.grid(row=1, column=0, sticky="ew")
+            widget_instance.config(xscrollcommand=h_scroll.set)
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        return widget_instance, container

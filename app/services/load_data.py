@@ -64,7 +64,7 @@ class LoadCSV(LoadData):
             raise CSVDelimiterNotProvidedError("Разделитель CSV не указан")
         try:
             csv_header = 0 if header else None
-            df = pd.read_csv(self.file_path, header=csv_header, delimiter=delimiter)
+            df = pd.read_csv(self.file_path, header=csv_header, delimiter=delimiter, engine='python')
             if not header:
                 df.columns = [f"column{i + 1}" for i in range(df.shape[1])]
             return df
@@ -72,7 +72,6 @@ class LoadCSV(LoadData):
             raise CSVParseError(f"Ошибка при попытке парсинга CSV: {e}")
         except pd.errors.EmptyDataError:
             raise CSVIsEmptyError(f"Отсутствуют данные в CSV")
-
 
 class LoadExcel(LoadData):
     """

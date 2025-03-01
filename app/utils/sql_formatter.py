@@ -19,13 +19,32 @@ class SQLFormatter:
         columns = "\n         , ".join(self.columns)
         values = "\n     , ".join(self.values)
         return (
-            f"DELETE\n  FROM {self.table_name};\n\n"
+            f"TRUNCATE TABLE {self.table_name};\n\n"
             f"INSERT\n  INTO {self.table_name} (\n"
             f"           {columns}\n       )\n"
             f"VALUES {values};"
         )
 
     def formatter_2(self):
+        columns = ", ".join(self.columns)
+        values = ",\n       ".join(self.values)
+        return (
+            f"TRUNCATE TABLE {self.table_name};\n\n"
+            f"INSERT INTO {self.table_name} ({columns})\n"
+            f"VALUES {values};"
+        )
+
+    def formatter_3(self):
+        columns = "\n         , ".join(self.columns)
+        values = "\n     , ".join(self.values)
+        return (
+            f"DELETE\n  FROM {self.table_name};\n\n"
+            f"INSERT\n  INTO {self.table_name} (\n"
+            f"           {columns}\n       )\n"
+            f"VALUES {values};"
+        )
+
+    def formatter_4(self):
         columns = ", ".join(self.columns)
         values = ",\n       ".join(self.values)
         return (
@@ -37,13 +56,15 @@ class SQLFormatter:
 
 class SQLFormatterFactory:
     """Класс для выбора SQL шаблона для форматирования"""
-    VALID_SQL_FORMATTERS = {
+    VALID_SQL_FORMATTERS = [
         "Тип 1",
-        "Тип 2"
-    }
+        "Тип 2",
+        "Тип 3",
+        "Тип 4"
+    ]
 
     @property
-    def types(self) -> set[str]:
+    def types(self) -> list[str]:
         """
         Возвращает список возможных типов SQL шаблонов
         :return: Список возможных типов SQL шаблонов
@@ -63,10 +84,12 @@ class SQLFormatterFactory:
         """
         formatters = {
             'Тип 1': SQLFormatter(table_name, columns, values).formatter_1,
-            'Тип 2': SQLFormatter(table_name, columns, values).formatter_2
+            'Тип 2': SQLFormatter(table_name, columns, values).formatter_2,
+            'Тип 3': SQLFormatter(table_name, columns, values).formatter_3,
+            'Тип 4': SQLFormatter(table_name, columns, values).formatter_4,
         }
         validate_keys(
-            expected=self.types,
+            expected=set(self.types),
             expected_name="types",
             actual=set(formatters.keys()),
             actual_name="formatters"
