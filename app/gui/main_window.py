@@ -10,6 +10,7 @@ from utils import messages
 from utils.errors import CSVParseError, CSVIsEmptyError
 from utils.logger import VALUE_FORMATTER_ERRORS
 from utils.sql_formatter import SQLFormatterFactory
+from utils.utils import resource_path
 from utils.value_formatter import ValueFormatterFactory
 from utils.widget_builder import WidgetBuilder
 
@@ -18,6 +19,7 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Tab2SQL")
+        self.iconbitmap(resource_path("favicon.ico"))
         self.geometry("1200x500")
         self.minsize(1200, 500)
         self.builder = WidgetBuilder()
